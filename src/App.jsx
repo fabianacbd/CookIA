@@ -348,7 +348,11 @@ export default function CookIA() {
       try {
         const res = await fetch("/api/recipe-steps", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: recipe.name, ingredients: recipe.ingredients }),
+          body: JSON.stringify({
+            name: recipe.name,
+            ingredients: recipe.ingredients,
+            userIngredients: selectedIngredients, // ← ingredientes originales del usuario
+          }),
         });
         if (!res.ok) throw new Error("No se pudieron cargar los pasos");
         const data = await res.json();
@@ -539,15 +543,31 @@ export default function CookIA() {
         <main style={s.main}>
           {!loading && (
             <div style={s.topBar} className="cookia-top-bar">
-              <div style={s.chipsLeft}>
-                {selectedIngredients.map(i=>(
-                  <button key={i} onClick={()=>removeIngredient(i)} style={s.chipResults}>{i} ✕</button>
-                ))}
+              {/* Fila superior: título pequeño + botones alineados derecha */}
+              <div style={s.topBarHeader}>
+                <span style={s.topBarLabel}>
+                  Buscando con <strong style={{color:"#2d8a3e"}}>{selectedIngredients.length}</strong> ingrediente{selectedIngredients.length!==1?"s":""}
+                </span>
+                <div style={s.topBarActions} className="cookia-top-bar-actions">
+                  <button onClick={()=>setSearchPanel(true)} style={s.addBtn}>
+                    <PlusIcon /> Añadir
+                  </button>
+                  <button onClick={()=>searchRecipes()} style={s.iconBtn} title="Buscar nuevas recetas">
+                    <SearchIcon />
+                  </button>
+                </div>
               </div>
-              <div style={s.topBarActions} className="cookia-top-bar-actions">
-                <button onClick={()=>setSearchPanel(true)} style={s.addBtn}><PlusIcon /> Añadir</button>
-                <button onClick={()=>searchRecipes()} style={s.iconBtn} title="Buscar nuevas recetas"><SearchIcon /></button>
-              </div>
+
+              {/* Fila inferior: chips de ingredientes */}
+              {selectedIngredients.length > 0 && (
+                <div style={s.chipsLeft}>
+                  {selectedIngredients.map(i=>(
+                    <button key={i} onClick={()=>removeIngredient(i)} style={s.chipResults}>
+                      {i} <span style={{opacity:0.8,marginLeft:4}}>✕</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -923,8 +943,10 @@ const s = {
   statN:{display:"block",fontSize:28,fontWeight:900,color:"#2d8a3e"},
   statL:{fontSize:12,color:"#888",fontWeight:600,textTransform:"uppercase"},
   factBar:{background:"#2d8a3e",color:"#fff",borderRadius:14,padding:"14px 24px",display:"flex",alignItems:"center",gap:12,fontSize:14,fontWeight:500},
-  topBar:{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",background:"#fff",padding:14,borderRadius:16,boxShadow:"0 4px 20px rgba(0,0,0,0.06)"},
-  chipsLeft:{display:"flex",flexWrap:"wrap",gap:8,flex:1,minWidth:180,alignItems:"center"},
+  topBar:{display:"flex",flexDirection:"column",gap:14,marginBottom:24,background:"#fff",padding:16,borderRadius:16,boxShadow:"0 4px 20px rgba(0,0,0,0.06)"},
+  topBarHeader:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"},
+  topBarLabel:{fontSize:14,color:"#555",fontWeight:500},
+  chipsLeft:{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"},
   topBarActions:{display:"flex",gap:8,alignItems:"center",flexShrink:0},
   iconBtn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0},
   addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"0 16px",fontSize:14,fontWeight:700,cursor:"pointer",height:44,lineHeight:1},
@@ -1036,8 +1058,8 @@ if (typeof document !== "undefined") {
       .cookia-big-btn{width:100% !important;justify-content:center !important;padding:14px !important}
       .cookia-results-title{font-size:22px !important}
       .cookia-news-title{font-size:26px !important}
-      .cookia-top-bar{padding:12px !important;flex-direction:column !important;align-items:stretch !important;gap:10px !important}
-      .cookia-top-bar-actions{justify-content:flex-end !important;width:100% !important}
+      .cookia-top-bar{padding:12px !important;gap:10px !important}
+      .cookia-top-bar-actions{justify-content:flex-end !important}
 
       /* Nav — oculta desktop, muestra hamburguesa */
       .cookia-nav-desktop{display:none !important}
