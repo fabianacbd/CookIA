@@ -529,7 +529,7 @@ export default function CookIA() {
           {/* Footer */}
           <footer style={s.footer}>
             <p style={s.footerText}>
-              <strong>CookIA</strong> — Reduciendo el desperdicio alimentario con inteligencia artificial 🌱
+              <strong>CookIA</strong> by Fabiana Barbati — Reduciendo el desperdicio alimentario con inteligencia artificial 🌱
             </p>
             <p style={s.footerSmall}>
               Datos basados en el Informe del Desperdicio Alimentario en los Hogares (MAPA, 2024) · Proyecto Final de Grado
@@ -928,7 +928,7 @@ const s = {
   searchBox:{background:"#fff",borderRadius:20,padding:20,boxShadow:"0 8px 40px rgba(0,0,0,0.08)",maxWidth:600,margin:"0 auto 24px",border:"1px solid #e8f5ea"},
   row:{display:"flex",gap:10},
   input:{flex:1,border:"1.5px solid #ddd",borderRadius:12,padding:"12px 16px",fontSize:15,outline:"none",fontFamily:"inherit"},
-  btn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+  btn:{background:"#46a84e",color:"#fff",border:"none",borderRadius:12,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
   chips:{display:"flex",flexWrap:"wrap",gap:8,marginTop:12},
   chip:{background:"#2d8a3e",color:"#fff",border:"none",borderRadius:30,padding:"6px 14px",fontSize:13,fontWeight:600,cursor:"pointer"},
   chipResults:{background:"#2d8a3e",color:"#fff",border:"none",borderRadius:22,padding:"0 16px",fontSize:13,fontWeight:600,cursor:"pointer",height:36,display:"inline-flex",alignItems:"center"},
@@ -948,7 +948,7 @@ const s = {
   topBarLabel:{fontSize:14,color:"#555",fontWeight:500},
   chipsLeft:{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"},
   topBarActions:{display:"flex",gap:8,alignItems:"center",flexShrink:0},
-  iconBtn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0},
+  iconBtn:{background:"#37bd58",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0},
   addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"0 16px",fontSize:14,fontWeight:700,cursor:"pointer",height:44,lineHeight:1},
   addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:700,cursor:"pointer"},
   outlineBtn:{display:"inline-flex",alignItems:"center",gap:8,background:"#f5f9f0",color:"#2d8a3e",border:"2px solid #2d8a3e",borderRadius:14,padding:"12px 24px",fontSize:15,fontWeight:700,cursor:"pointer"},
