@@ -540,7 +540,9 @@ export default function CookIA() {
           {!loading && (
             <div style={s.topBar} className="cookia-top-bar">
               <div style={s.chipsLeft}>
-                {selectedIngredients.map(i=><button key={i} onClick={()=>removeIngredient(i)} style={s.chip}>{i} ✕</button>)}
+                {selectedIngredients.map(i=>(
+                  <button key={i} onClick={()=>removeIngredient(i)} style={s.chipResults}>{i} ✕</button>
+                ))}
               </div>
               <div style={s.topBarActions} className="cookia-top-bar-actions">
                 <button onClick={()=>setSearchPanel(true)} style={s.addBtn}><PlusIcon /> Añadir</button>
@@ -906,9 +908,10 @@ const s = {
   searchBox:{background:"#fff",borderRadius:20,padding:20,boxShadow:"0 8px 40px rgba(0,0,0,0.08)",maxWidth:600,margin:"0 auto 24px",border:"1px solid #e8f5ea"},
   row:{display:"flex",gap:10},
   input:{flex:1,border:"1.5px solid #ddd",borderRadius:12,padding:"12px 16px",fontSize:15,outline:"none",fontFamily:"inherit"},
-  btn:{background:"#2bac4b",color:"#fff",border:"none",borderRadius:12,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+  btn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
   chips:{display:"flex",flexWrap:"wrap",gap:8,marginTop:12},
   chip:{background:"#2d8a3e",color:"#fff",border:"none",borderRadius:30,padding:"6px 14px",fontSize:13,fontWeight:600,cursor:"pointer"},
+  chipResults:{background:"#2d8a3e",color:"#fff",border:"none",borderRadius:22,padding:"0 16px",fontSize:13,fontWeight:600,cursor:"pointer",height:36,display:"inline-flex",alignItems:"center"},
   err:{color:"#e55",fontSize:13,marginTop:8},
   label:{color:"#888",fontSize:12,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:"0.5px"},
   quickGrid:{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",maxWidth:620,margin:"0 auto"},
@@ -920,10 +923,11 @@ const s = {
   statN:{display:"block",fontSize:28,fontWeight:900,color:"#2d8a3e"},
   statL:{fontSize:12,color:"#888",fontWeight:600,textTransform:"uppercase"},
   factBar:{background:"#2d8a3e",color:"#fff",borderRadius:14,padding:"14px 24px",display:"flex",alignItems:"center",gap:12,fontSize:14,fontWeight:500},
-  topBar:{display:"flex",gap:16,alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",background:"#fff",padding:16,borderRadius:16,boxShadow:"0 4px 20px rgba(0,0,0,0.06)"},
-  chipsLeft:{display:"flex",flexWrap:"wrap",gap:8,flex:1,minWidth:200},
-  topBarActions:{display:"flex",gap:10,alignItems:"center",flexShrink:0},
-  iconBtn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"},
+  topBar:{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",background:"#fff",padding:14,borderRadius:16,boxShadow:"0 4px 20px rgba(0,0,0,0.06)"},
+  chipsLeft:{display:"flex",flexWrap:"wrap",gap:8,flex:1,minWidth:180,alignItems:"center"},
+  topBarActions:{display:"flex",gap:8,alignItems:"center",flexShrink:0},
+  iconBtn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0},
+  addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"0 16px",fontSize:14,fontWeight:700,cursor:"pointer",height:44,lineHeight:1},
   addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:700,cursor:"pointer"},
   outlineBtn:{display:"inline-flex",alignItems:"center",gap:8,background:"#f5f9f0",color:"#2d8a3e",border:"2px solid #2d8a3e",borderRadius:14,padding:"12px 24px",fontSize:15,fontWeight:700,cursor:"pointer"},
   loading:{textAlign:"center",padding:"80px 20px"},
