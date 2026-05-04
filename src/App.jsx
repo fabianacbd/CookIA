@@ -1,4 +1,11 @@
 import { useState, useEffect, Component } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// ── Cliente Supabase ────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://zluxhtgshydphukjcdhd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsdXhodGdzaHlkcGh1a2pjZGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NTQxODUsImV4cCI6MjA5MzQzMDE4NX0.GtS5kDHCjBvXkms4MNjdypSnZZZbTyT3pso6fUrLn1E";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 
 // Error boundary — captura cualquier error de render y muestra mensaje útil
 class ErrorBoundary extends Component {
@@ -172,6 +179,7 @@ export default function CookIA() {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [stepsLoading, setStepsLoading]     = useState(false);
   const [savedMeals, setSavedMeals]         = useState(() => {
+    // Cache offline: carga desde localStorage al inicio
     try { return JSON.parse(localStorage.getItem("cookia_saved") || "[]"); } catch { return []; }
   });
   const [factIndex, setFactIndex]   = useState(0);
@@ -180,6 +188,58 @@ export default function CookIA() {
   const [searchPanel, setSearchPanel]   = useState(false);
   const [panelInput, setPanelInput]     = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // ── Autenticación ────────────────────────────────────────────────────────
+  const [user, setUser]             = useState(null);
+  const [authOpen, setAuthOpen]     = useState(false);
+  const [authMode, setAuthMode]     = useState("login"); // "login" | "register"
+  const [authEmail, setAuthEmail]   = useState("");
+  const [authPass, setAuthPass]     = useState("");
+  const [authError, setAuthError]   = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Carga sesión actual y suscribe a cambios
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user || null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Cuando hay usuario, sincroniza recetas con Supabase
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("saved_meals")
+          .select("*")
+          .order("created_at", { ascending: true });
+        if (!error && Array.isArray(data)) {
+          // Mapea formato BD → formato app
+          const meals = data.map(r => ({
+            _id: r.id,
+            name: r.name,
+            image: r.image,
+            saved_grams: r.saved_grams,
+            ingredients: r.ingredients || [],
+            steps: r.steps || [],
+            difficulty: r.difficulty,
+            servings: r.servings,
+            time: r.time,
+            calories: r.calories,
+            date: r.date,
+          }));
+          setSavedMeals(meals);
+          // Cache offline para acceso sin conexión
+          localStorage.setItem("cookia_saved", JSON.stringify(meals));
+        }
+      } catch (err) {
+        console.warn("Sin conexión, usando cache local");
+      }
+    })();
+  }, [user]);
 
   // Cámara (solo móvil)
   const [isMobile, setIsMobile]         = useState(false);
@@ -370,9 +430,101 @@ export default function CookIA() {
     }
   };
 
-  const markAsDone = (recipe) => {
-    setSavedMeals(p => [...p, { ...recipe, date: new Date().toLocaleDateString("es-ES") }]);
+  // ── Funciones de autenticación ──────────────────────────────────────────
+  const handleAuth = async () => {
+    if (!authEmail || !authPass) {
+      setAuthError("Rellena email y contraseña");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      let result;
+      if (authMode === "login") {
+        result = await supabase.auth.signInWithPassword({ email: authEmail, password: authPass });
+      } else {
+        result = await supabase.auth.signUp({ email: authEmail, password: authPass });
+      }
+      if (result.error) throw result.error;
+      setAuthOpen(false);
+      setAuthEmail("");
+      setAuthPass("");
+    } catch (err) {
+      setAuthError(err.message || "Error de autenticación");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setSavedMeals([]);
+    localStorage.removeItem("cookia_saved");
+  };
+
+  // ── Marcar receta como hecha (persiste en Supabase si hay usuario) ──────
+  const markAsDone = async (recipe) => {
+    if (!user) {
+      // Sin login → invita a registrarse
+      setSelectedRecipe(null);
+      setAuthMode("register");
+      setAuthOpen(true);
+      return;
+    }
+    const meal = {
+      user_id: user.id,
+      name: recipe.name,
+      image: recipe.image,
+      saved_grams: recipe.saved_grams || 300,
+      ingredients: recipe.ingredients || [],
+      steps: recipe.steps || [],
+      difficulty: recipe.difficulty || "Media",
+      servings: recipe.servings || 2,
+      time: recipe.time || "30 min",
+      calories: recipe.calories || 400,
+      date: new Date().toLocaleDateString("es-ES"),
+    };
+    try {
+      const { data, error } = await supabase
+        .from("saved_meals")
+        .insert(meal)
+        .select()
+        .single();
+      if (error) throw error;
+      const updated = [...savedMeals, { ...meal, _id: data.id }];
+      setSavedMeals(updated);
+      localStorage.setItem("cookia_saved", JSON.stringify(updated));
+    } catch (err) {
+      // Sin conexión → guarda solo local
+      console.warn("Offline: guardando en local");
+      const updated = [...savedMeals, { ...meal, _id: Date.now() }];
+      setSavedMeals(updated);
+      localStorage.setItem("cookia_saved", JSON.stringify(updated));
+    }
     setSelectedRecipe(null);
+  };
+
+  // ── Eliminar receta de Supabase ─────────────────────────────────────────
+  const deleteMeal = async (mealId, index) => {
+    if (user && mealId) {
+      try {
+        await supabase.from("saved_meals").delete().eq("id", mealId);
+      } catch {}
+    }
+    const updated = savedMeals.filter((_, i) => i !== index);
+    setSavedMeals(updated);
+    localStorage.setItem("cookia_saved", JSON.stringify(updated));
+  };
+
+  // ── Reiniciar todo el historial ─────────────────────────────────────────
+  const resetAll = async () => {
+    if (user) {
+      try {
+        await supabase.from("saved_meals").delete().eq("user_id", user.id);
+      } catch {}
+    }
+    setSavedMeals([]);
+    localStorage.removeItem("cookia_saved");
   };
 
   const totalSaved = savedMeals.reduce((a, m) => a + (m.saved_grams || 300), 0);
@@ -400,6 +552,15 @@ export default function CookIA() {
                 <span>{savedMeals.length}</span>
               )}
             </button>
+            {user ? (
+              <button onClick={signOut} style={s.navAuth} title={user.email}>
+                👤 Salir
+              </button>
+            ) : (
+              <button onClick={()=>{setAuthMode("login");setAuthOpen(true);}} style={s.navAuth}>
+                Iniciar sesión
+              </button>
+            )}
           </div>
 
           {/* Mobile hamburger — se oculta en desktop vía CSS */}
@@ -436,6 +597,21 @@ export default function CookIA() {
             >
               🌿  {savedMeals.length > 0 ? `Comida salvada · ${savedMeals.length}` : "Comida salvada"}
             </button>
+            {user ? (
+              <button
+                onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                style={s.mobileMenuItem}
+              >
+                👤  Cerrar sesión
+              </button>
+            ) : (
+              <button
+                onClick={() => { setAuthMode("login"); setAuthOpen(true); setMobileMenuOpen(false); }}
+                style={s.mobileMenuItem}
+              >
+                🔑  Iniciar sesión
+              </button>
+            )}
           </div>
         )}
       </nav>
@@ -529,7 +705,7 @@ export default function CookIA() {
           {/* Footer */}
           <footer style={s.footer}>
             <p style={s.footerText}>
-              <strong>CookIA</strong> by Fabiana Barbati — Reduciendo el desperdicio alimentario con inteligencia artificial 🌱
+              <strong>CookIA</strong> — Reduciendo el desperdicio alimentario con inteligencia artificial 🌱
             </p>
             <p style={s.footerSmall}>
               Datos basados en el Informe del Desperdicio Alimentario en los Hogares (MAPA, 2024) · Proyecto Final de Grado
@@ -654,7 +830,7 @@ export default function CookIA() {
                 <button
                   onClick={()=>{
                     if (window.confirm("¿Seguro que quieres eliminar todo el historial? Esta acción no se puede deshacer.")) {
-                      setSavedMeals([]);
+                      resetAll();
                     }
                   }}
                   style={s.resetBtn}
@@ -667,7 +843,7 @@ export default function CookIA() {
                 {savedMeals.slice().reverse().map((meal, revIndex) => {
                   const realIndex = savedMeals.length - 1 - revIndex;
                   return (
-                    <div key={realIndex} style={s.savedItem}>
+                    <div key={meal._id || realIndex} style={s.savedItem}>
                       <img src={meal.image} alt={meal.name} style={s.savedImg}
                         onError={e=>e.target.src=`https://images.unsplash.com/photo-${FALLBACK_PHOTOS[0]}?w=400&q=80`}/>
                       <div style={{flex:1,minWidth:0}}>
@@ -678,7 +854,7 @@ export default function CookIA() {
                       <button
                         onClick={()=>{
                           if (window.confirm(`¿Eliminar "${meal.name}" del historial?`)) {
-                            setSavedMeals(prev => prev.filter((_, i) => i !== realIndex));
+                            deleteMeal(meal._id, realIndex);
                           }
                         }}
                         style={s.deleteBtn}
@@ -727,6 +903,73 @@ export default function CookIA() {
             <button onClick={()=>searchRecipes()} style={{...s.bigBtn,width:"100%",justifyContent:"center",marginTop:16}}>
               <FireIcon /> Buscar con {selectedIngredients.length} ingrediente{selectedIngredients.length!==1?"s":""}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL AUTENTICACIÓN ── */}
+      {authOpen && (
+        <div style={s.modalOverlay} onClick={()=>setAuthOpen(false)}>
+          <div style={{...s.modal,maxWidth:420}} onClick={e=>e.stopPropagation()}>
+            <button onClick={()=>setAuthOpen(false)} style={s.modalClose}>✕</button>
+            <div style={{padding:32}}>
+              <h2 style={{margin:"0 0 8px",fontSize:24,fontWeight:800,color:"#1a1a1a",fontFamily:"'Playfair Display',Georgia,serif"}}>
+                {authMode === "login" ? "Bienvenido de vuelta 🌱" : "Únete a CookIA 🌱"}
+              </h2>
+              <p style={{color:"#666",fontSize:14,marginBottom:24,lineHeight:1.5}}>
+                {authMode === "login"
+                  ? "Inicia sesión para sincronizar tus recetas en todos tus dispositivos."
+                  : "Crea una cuenta gratis para guardar tu impacto y acceder desde cualquier dispositivo."}
+              </p>
+
+              <input
+                type="email"
+                value={authEmail}
+                onChange={e=>setAuthEmail(e.target.value)}
+                placeholder="tu@email.com"
+                autoComplete="email"
+                style={{...s.input,width:"100%",marginBottom:12}}
+              />
+              <input
+                type="password"
+                value={authPass}
+                onChange={e=>setAuthPass(e.target.value)}
+                placeholder="Contraseña (mínimo 6 caracteres)"
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                style={{...s.input,width:"100%",marginBottom:12}}
+                onKeyDown={e=>e.key==="Enter"&&handleAuth()}
+              />
+
+              {authError && (
+                <p style={{color:"#cc4444",fontSize:13,marginBottom:12,textAlign:"center"}}>
+                  ⚠️ {authError}
+                </p>
+              )}
+
+              <button
+                onClick={handleAuth}
+                disabled={authLoading}
+                style={{...s.bigBtn,width:"100%",justifyContent:"center",marginTop:8,opacity:authLoading?0.6:1}}
+              >
+                {authLoading ? "Cargando..." : (authMode === "login" ? "Iniciar sesión" : "Crear cuenta")}
+              </button>
+
+              <p style={{textAlign:"center",marginTop:16,fontSize:13,color:"#666"}}>
+                {authMode === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
+                <button
+                  onClick={()=>{setAuthMode(authMode === "login" ? "register" : "login");setAuthError("");}}
+                  style={{background:"none",border:"none",color:"#2d8a3e",fontWeight:700,cursor:"pointer",textDecoration:"underline",padding:0,fontSize:13}}
+                >
+                  {authMode === "login" ? "Regístrate" : "Inicia sesión"}
+                </button>
+              </p>
+
+              {authMode === "register" && (
+                <p style={{fontSize:11,color:"#999",textAlign:"center",marginTop:12,lineHeight:1.5}}>
+                  Al registrarte, recibirás un email de confirmación. Tus datos se guardan de forma segura con Supabase.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -913,6 +1156,7 @@ const s = {
   navOff:{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)",cursor:"pointer",color:"rgba(255,255,255,0.9)",fontSize:14,fontWeight:500,padding:"7px 16px",borderRadius:22,transition:"all 0.2s"},
   navOn:{background:"#b8f5c8",border:"1px solid #b8f5c8",cursor:"pointer",color:"#1a5c2a",fontSize:14,fontWeight:700,padding:"7px 16px",borderRadius:22,boxShadow:"0 2px 8px rgba(184,245,200,0.4)"},
   navSaved:{display:"flex",alignItems:"center",gap:6,background:"#b8f5c8",border:"1px solid #b8f5c8",cursor:"pointer",color:"#1a5c2a",fontSize:14,fontWeight:700,padding:"7px 16px",borderRadius:22,boxShadow:"0 2px 8px rgba(184,245,200,0.4)"},
+  navAuth:{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)",cursor:"pointer",color:"#fff",fontSize:13,fontWeight:600,padding:"7px 14px",borderRadius:22,whiteSpace:"nowrap"},
   hamburger:{display:"none",flexDirection:"column",justifyContent:"space-between",width:28,height:22,background:"none",border:"none",cursor:"pointer",padding:0},
   hamburgerLine:{display:"block",height:3,width:"100%",background:"#fff",borderRadius:2,transition:"all 0.25s ease",transformOrigin:"center"},
   mobileMenu:{display:"none",flexDirection:"column",background:"#2d8a3e",borderTop:"1px solid rgba(255,255,255,0.2)",padding:"8px 16px 12px"},
@@ -928,7 +1172,7 @@ const s = {
   searchBox:{background:"#fff",borderRadius:20,padding:20,boxShadow:"0 8px 40px rgba(0,0,0,0.08)",maxWidth:600,margin:"0 auto 24px",border:"1px solid #e8f5ea"},
   row:{display:"flex",gap:10},
   input:{flex:1,border:"1.5px solid #ddd",borderRadius:12,padding:"12px 16px",fontSize:15,outline:"none",fontFamily:"inherit"},
-  btn:{background:"#46a84e",color:"#fff",border:"none",borderRadius:12,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+  btn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
   chips:{display:"flex",flexWrap:"wrap",gap:8,marginTop:12},
   chip:{background:"#2d8a3e",color:"#fff",border:"none",borderRadius:30,padding:"6px 14px",fontSize:13,fontWeight:600,cursor:"pointer"},
   chipResults:{background:"#2d8a3e",color:"#fff",border:"none",borderRadius:22,padding:"0 16px",fontSize:13,fontWeight:600,cursor:"pointer",height:36,display:"inline-flex",alignItems:"center"},
@@ -948,7 +1192,7 @@ const s = {
   topBarLabel:{fontSize:14,color:"#555",fontWeight:500},
   chipsLeft:{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"},
   topBarActions:{display:"flex",gap:8,alignItems:"center",flexShrink:0},
-  iconBtn:{background:"#37bd58",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0},
+  iconBtn:{background:"#1a1a1a",color:"#fff",border:"none",borderRadius:12,width:44,height:44,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0},
   addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"0 16px",fontSize:14,fontWeight:700,cursor:"pointer",height:44,lineHeight:1},
   addBtn:{display:"flex",alignItems:"center",gap:6,background:"#e8f8ec",color:"#2d8a3e",border:"1.5px solid #c5eacc",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:700,cursor:"pointer"},
   outlineBtn:{display:"inline-flex",alignItems:"center",gap:8,background:"#f5f9f0",color:"#2d8a3e",border:"2px solid #2d8a3e",borderRadius:14,padding:"12px 24px",fontSize:15,fontWeight:700,cursor:"pointer"},
